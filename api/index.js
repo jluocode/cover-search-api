@@ -39,12 +39,17 @@ export default async function handler(req, res) {
 
   let cover = null
 
-  // 1️⃣ 先查英文 Wikipedia
-  cover = await fetchWikiThumbnail('en', title)
+  // 英文
+cover = await fetchWikiThumbnail('en', title)
 
-  // 2️⃣ 英文没有 → 查中文 Wikipedia
+  // 中文
   if (!cover) {
     cover = await fetchWikiThumbnail('zh', title)
+  }
+  
+  // 中文电影兜底
+  if (!cover) {
+    cover = await fetchWikiThumbnail('zh', `${title} (电影)`)
   }
 
   // 3️⃣ 还是没有 → 占位图
