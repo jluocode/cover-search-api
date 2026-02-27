@@ -1,80 +1,73 @@
-// /api/cover-search.js
-
-/**
- * 从 Wikipedia 获取封面图
- * @param {string} lang - 'en' | 'zh'
- * @param {string} title - 词条标题
- * @returns {string|null} 图片 URL 或 null
- */
-
-const VERSION = 'debug-2026-02-27-1'
-
-async function fetchWikiThumbnail(lang, title) {
-  try {
-    const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
-    console.log('[wiki]', lang, url)
-
-    const res = await fetch(url)
-    console.log('[wiki]', lang, 'status:', res.status)
-
-    if (!res.ok) return null
-
-    const data = await res.json()
-    console.log('[wiki]', lang, 'thumbnail:', data?.thumbnail)
-
-    return data?.thumbnail?.source || null
-  } catch (e) {
-    console.log('[wiki]', lang, 'error:', e)
-    return null
-  }
-}
+import searchWikipedia from './sources/wikipedia.js'
+import searchBaiduBaike from './sources/baiduBaike.js'
+import dummyCover from './sources/dummy.js'
 
 export default async function handler(req, res) {
-  // 添加 CORS 头
-  res.setHeader('Access-Control-Allow-Origin', '*'); // 允许所有域名
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
-  
-  // 处理 OPTIONS 预检请求
+  // ===== CORS（Figma Make 必须）=====
+  res.setHeader('Access-Control-Allow-Origin', '*')
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    res.status(200).end()
+    return
   }
-  
-  const { title } = req.query
 
-  // 基础校验
+  const title = (req.query.title || '').trim()
+  const debug = req.query.debug === 'true'
+
   if (!title) {
-    return res.status(400).json({
-      ok: false,
-      error: 'missing title'
-    })
+    res.status(400).json({ ok: false, error: 'Missing title' })
+    return
   }
 
-  let cover = null
+  const tried = []
+  const failed = []
 
-  // 英文
-cover = await fetchWikiThumbnail('en', title)
-
-  // 中文
-  if (!cover) {
-    cover = await fetchWikiThumbnail('zh', title)
+  // ===== 1. Wikipedia =====
+  tried.push('wikipedia')
+  try {
+    const image = await searchWikipedia(title)
+    if (image) {
+      res.json({
+        ok: true,
+        title,
+        image,
+        source: 'wikipedia',
+        ...(debug ? { tried, failed } : {})
+      })
+      return
+    }
+    failed.push('wikipedia')
+  } catch (e) {
+    failed.push('wikipedia')
   }
-  
-  // 中文电影兜底
-  if (!cover) {
-    cover = await fetchWikiThumbnail('zh', `${title} (电影)`)
+
+  // ===== 2. 百度百科 =====
+  tried.push('baidu')
+  try {
+    const image = await searchBaiduBaike(title)
+    if (image) {
+      res.json({
+        ok: true,
+        title,
+        image,
+        source: 'baidu',
+        ...(debug ? { tried, failed } : {})
+      })
+      return
+    }
+    failed.push('baidu')
+  } catch (e) {
+    failed.push('baidu')
   }
 
-  // 3️⃣ 还是没有 → 占位图
-  if (!cover) {
-    cover = `https://dummyimage.com/300x450/ccc/000&text=${encodeURIComponent(title)}`
-  }
-
-  return res.status(200).json({
+  // ===== 3. dummy 兜底 =====
+  res.json({
     ok: true,
     title,
-    cover,
-    version: VERSION
+    image: dummyCover(title),
+    source: 'fallback',
+    ...(debug ? { tried, failed } : {})
   })
 }
