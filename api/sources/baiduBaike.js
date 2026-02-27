@@ -1,34 +1,26 @@
-import * as cheerio from 'cheerio'
-
 export default async function searchBaiduBaike(title) {
   const url =
-    'https://baike.baidu.com/item/' +
-    encodeURIComponent(title)
+    'https://baike.baidu.com/api/openapi/BaikeLemmaCardApi?' +
+    `scope=103&format=json&appid=379020&bk_key=${encodeURIComponent(
+      title
+    )}&bk_length=600`
 
   const res = await fetch(url, {
     headers: {
       'User-Agent':
-        'Mozilla/5.0 (compatible; CoverSearch/1.0)',
-      'Accept-Language': 'zh-CN,zh;q=0.9'
+        'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)',
+      Accept: 'application/json'
     }
   })
 
   if (!res.ok) return null
 
-  const html = await res.text()
-  const $ = cheerio.load(html)
+  const data = await res.json()
 
-  // 百度百科封面通常在 summary-pic 或 lemma-summary
-  const img =
-    $('.summary-pic img').attr('src') ||
-    $('.lemma-summary img').attr('src')
-
-  if (!img) return null
-
-  // 处理 // 开头的 URL
-  if (img.startsWith('//')) {
-    return 'https:' + img
+  // 🔑 关键：百科的主图在这里
+  if (data?.image) {
+    return data.image
   }
 
-  return img
+  return null
 }
