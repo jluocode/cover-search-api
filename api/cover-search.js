@@ -6,14 +6,16 @@ export default async function handler(req, res) {
   // ===== CORS（Figma Make 必须）=====
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept')
 
   if (req.method === 'OPTIONS') {
     res.status(200).end()
     return
   }
 
-  const title = (req.query.title || '').trim()
+  // ===== 1. 统一、正确地处理 title =====
+  const rawTitle = req.query.title || ''
+  const title = decodeURIComponent(rawTitle).trim()
   const debug = req.query.debug === 'true'
 
   if (!title) {
@@ -21,53 +23,88 @@ export default async function handler(req, res) {
     return
   }
 
+  // ===== 2. 生成搜索变体（关键优化）=====
+  const variants = Array.from(
+    new Set([
+      title,
+      `${title}（电影）`,
+      `${title} 电影`,
+      `${title} 第一季`,
+      `${title} 电影版`
+    ])
+  )
+
   const tried = []
   const failed = []
+  const debugLogs = []
 
-  // ===== 1. Wikipedia =====
-  tried.push('wikipedia')
-  try {
-    const image = await searchWikipedia(title)
-    if (image) {
-      res.json({
-        ok: true,
-        title,
-        image,
-        source: 'wikipedia',
-        ...(debug ? { tried, failed } : {})
-      })
-      return
+  // 小工具：跑一个 source + 多个变体
+  async function trySource(sourceName, fn) {
+    tried.push(sourceName)
+
+    for (const v of variants) {
+      try {
+        const image = await fn(v)
+        if (debug) {
+          debugLogs.push({
+            source: sourceName,
+            query: v,
+            ok: !!image
+          })
+        }
+
+        if (image) {
+          return { image, query: v }
+        }
+      } catch (e) {
+        if (debug) {
+          debugLogs.push({
+            source: sourceName,
+            query: v,
+            error: e.message
+          })
+        }
+      }
     }
-    failed.push('wikipedia')
-  } catch (e) {
-    failed.push('wikipedia')
+
+    failed.push(sourceName)
+    return null
   }
 
-  // ===== 2. 百度百科 =====
-  tried.push('baidu')
-  try {
-    const image = await searchBaiduBaike(title)
-    if (image) {
-      res.json({
-        ok: true,
-        title,
-        image,
-        source: 'baidu',
-        ...(debug ? { tried, failed } : {})
-      })
-      return
-    }
-    failed.push('baidu')
-  } catch (e) {
-    failed.push('baidu')
+  // ===== 3. Wikipedia =====
+  const wikiResult = await trySource('wikipedia', searchWikipedia)
+  if (wikiResult) {
+    res.json({
+      ok: true,
+      title,
+      image: wikiResult.image,
+      source: 'wikipedia',
+      matchedQuery: wikiResult.query,
+      ...(debug ? { tried, failed, debugLogs } : {})
+    })
+    return
   }
 
-  // ===== 3. dummy 兜底 =====
+  // ===== 4. 百度百科 =====
+  const baiduResult = await trySource('baidu', searchBaiduBaike)
+  if (baiduResult) {
+    res.json({
+      ok: true,
+      title,
+      image: baiduResult.image,
+      source: 'baidu',
+      matchedQuery: baiduResult.query,
+      ...(debug ? { tried, failed, debugLogs } : {})
+    })
+    return
+  }
+
+  // ===== 5. dummy 兜底 =====
   res.json({
     ok: true,
     title,
     image: dummyCover(title),
     source: 'fallback',
-    ...(debug ? { tried, failed } : {})
+    ...(debug ? { tried, failed, debugLogs } : {})
   })
 }
