@@ -6,6 +6,9 @@
  * @param {string} title - 词条标题
  * @returns {string|null} 图片 URL 或 null
  */
+
+const VERSION = 'debug-2026-02-27-1'
+
 async function fetchWikiThumbnail(lang, title) {
   try {
     const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
@@ -60,6 +63,7 @@ cover = await fetchWikiThumbnail('en', title)
   return res.status(200).json({
     ok: true,
     title,
-    cover
+    cover,
+    version: VERSION
   })
 }
