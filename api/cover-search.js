@@ -1,3 +1,5 @@
+const BASE_URL = 'https://cover-search-api.vercel.app'
+
 import searchWikipedia from './sources/wikipedia.js'
 import searchBaiduBaike from './sources/baiduBaike.js'
 import dummyCover from './sources/dummy.js'
@@ -91,8 +93,8 @@ export default async function handler(req, res) {
     res.json({
       ok: true,
       title,
-      image: `/api/image-proxy?url=${encodeURIComponent(
-    baiduResult.image
+      image: `${BASE_URL}/api/image-proxy?url=${encodeURIComponent(
+  baiduResult.image
   )}`,
       source: 'baidu',
       matchedQuery: baiduResult.query,
