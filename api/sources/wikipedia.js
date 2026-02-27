@@ -1,17 +1,17 @@
 export default async function searchWikipedia(title) {
-  const searchUrl =
+  const url =
     'https://zh.wikipedia.org/w/api.php?' +
     new URLSearchParams({
       action: 'query',
       format: 'json',
       prop: 'pageimages',
-      piprop: 'original',
+      pithumbsize: '500',   // ⭐ 关键：用缩略图
       titles: title,
       redirects: '1',
       origin: '*'
     })
 
-  const res = await fetch(searchUrl)
+  const res = await fetch(url)
   if (!res.ok) return null
 
   const data = await res.json()
@@ -19,5 +19,7 @@ export default async function searchWikipedia(title) {
   if (!pages) return null
 
   const page = Object.values(pages)[0]
-  return page?.original?.source || null
+
+  // ⭐ 关键：thumb 而不是 original
+  return page?.thumbnail?.source || null
 }
