@@ -1,11 +1,8 @@
 // api/index.js
 
-const fetch = (...args) =>
-  import('node-fetch').then(({ default: fetch }) => fetch(...args))
-
 async function isImageValid(url) {
   try {
-    const res = await fetch(url, { method: 'HEAD', timeout: 3000 })
+    const res = await fetch(url, { method: 'HEAD' })
     return res.ok
   } catch {
     return false
@@ -24,37 +21,15 @@ async function searchWikipediaImage(title) {
   return data?.thumbnail?.source || null
 }
 
-async function searchDuckDuckGoImage(title) {
-  const api = `https://duckduckgo.com/?q=${encodeURIComponent(
-    title + ' film poster'
-  )}&iax=images&ia=images`
-
-  const res = await fetch(api)
-  const html = await res.text()
-
-  const match = html.match(/"image":"(https:\\/\\/[^"]+)"/)
-  if (!match) return null
-
-  return match[1].replace(/\\\//g, '/')
-}
-
 module.exports = async (req, res) => {
-  const { title, cover } = req.query || {}
+  const { title } = req.query || {}
 
   if (!title) {
     return res.status(400).json({ error: 'title is required' })
   }
 
-  // 1️⃣ 如果传了封面，先校验
-  if (cover && (await isImageValid(cover))) {
-    return res.json({
-      source: 'original',
-      cover
-    })
-  }
-
-  // 2️⃣ Wikipedia
   const wikiCover = await searchWikipediaImage(title)
+
   if (wikiCover) {
     return res.json({
       source: 'wikipedia',
@@ -62,16 +37,6 @@ module.exports = async (req, res) => {
     })
   }
 
-  // 3️⃣ DuckDuckGo
-  const ddgCover = await searchDuckDuckGoImage(title)
-  if (ddgCover) {
-    return res.json({
-      source: 'duckduckgo',
-      cover: ddgCover
-    })
-  }
-
-  // 4️⃣ 兜底
   return res.json({
     source: 'fallback',
     cover: `https://dummyimage.com/300x450/ccc/000&text=${encodeURIComponent(
