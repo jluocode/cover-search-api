@@ -9,13 +9,19 @@
 async function fetchWikiThumbnail(lang, title) {
   try {
     const url = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`
+    console.log('[wiki]', lang, url)
+
     const res = await fetch(url)
+    console.log('[wiki]', lang, 'status:', res.status)
 
     if (!res.ok) return null
 
     const data = await res.json()
+    console.log('[wiki]', lang, 'thumbnail:', data?.thumbnail)
+
     return data?.thumbnail?.source || null
   } catch (e) {
+    console.log('[wiki]', lang, 'error:', e)
     return null
   }
 }
