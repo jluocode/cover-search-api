@@ -30,6 +30,17 @@ async function fetchWikiThumbnail(lang, title) {
 }
 
 export default async function handler(req, res) {
+  // 添加 CORS 头
+  res.setHeader('Access-Control-Allow-Origin', '*'); // 允许所有域名
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept');
+  
+  // 处理 OPTIONS 预检请求
+  if (req.method === 'OPTIONS') {
+    res.status(200).end();
+    return;
+  }
+  
   const { title } = req.query
 
   // 基础校验
