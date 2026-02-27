@@ -1,25 +1,35 @@
-export default async function searchWikipedia(title) {
+async function fetchSummary(title) {
   const url =
-    'https://zh.wikipedia.org/w/api.php?' +
-    new URLSearchParams({
-      action: 'query',
-      format: 'json',
-      prop: 'pageimages',
-      pithumbsize: '500',   // ⭐ 关键：用缩略图
-      titles: title,
-      redirects: '1',
-      origin: '*'
-    })
+    'https://zh.wikipedia.org/api/rest_v1/page/summary/' +
+    encodeURIComponent(title)
 
-  const res = await fetch(url)
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'CoverSearch/1.0' }
+  })
+
   if (!res.ok) return null
 
   const data = await res.json()
-  const pages = data?.query?.pages
-  if (!pages) return null
 
-  const page = Object.values(pages)[0]
+  return (
+    data?.originalimage?.source ||
+    data?.thumbnail?.source ||
+    null
+  )
+}
 
-  // ⭐ 关键：thumb 而不是 original
-  return page?.thumbnail?.source || null
+export default async function searchWikipedia(title) {
+  // 第 1 轮：原始标题
+  let image = await fetchSummary(title)
+  if (image) return image
+
+  // 第 2 轮：标题 +（电影）
+  image = await fetchSummary(`${title}（电影）`)
+  if (image) return image
+
+  // 第 3 轮（可选）：标题 + 电影
+  image = await fetchSummary(`${title} 电影`)
+  if (image) return image
+
+  return null
 }
